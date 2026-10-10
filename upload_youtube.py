@@ -18,7 +18,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/"
-    "models/gemini-2.5-flash:generateContent"
+    "models/gemini-3.5-flash-lite:generateContent"
 )
 
 FALLBACK_TITLES = [
@@ -50,9 +50,7 @@ def save_uploaded(uploaded):
 def get_video_context(video):
     context = f"Video filename: {video.name}"
 
-    quote_files = sorted(
-        VIDEO_FOLDER.glob("quote_*.txt")
-    )
+    quote_files = sorted(VIDEO_FOLDER.glob("quote_*.txt"))
 
     if quote_files:
         try:
@@ -61,7 +59,7 @@ def get_video_context(video):
             ).strip()
 
             if quote:
-                context += f"\nText or motivational quote: {quote}"
+                context += f"\nMotivational text: {quote}"
         except OSError:
             pass
 
@@ -79,34 +77,36 @@ def generate_metadata(video):
         "#Shorts #LuxuryLifestyle #Motivation #Success"
     )
 
+    fallback_tags = [
+        "luxury lifestyle",
+        "motivation",
+        "success",
+    ]
+
     if not GEMINI_API_KEY:
-        print("GEMINI_API_KEY nije pronadjen. Koristim rezervni tekst.")
-        return fallback_title, fallback_description, [
-            "luxury lifestyle", "motivation", "success"
-        ]
+        print("GEMINI_API_KEY nedostaje.")
+        return fallback_title, fallback_description, fallback_tags
 
     prompt = f"""
-You create original YouTube Shorts metadata for a luxury
-lifestyle channel.
+Create original YouTube Shorts metadata for a luxury lifestyle channel.
 
-Use the context below to create:
-- One catchy, natural English title, maximum 90 characters.
-- A unique, useful English description of 2-4 short paragraphs.
-- 5-8 relevant hashtags.
-- 5-8 relevant YouTube tags.
+Use the supplied information to produce:
+1. One catchy English title, maximum 90 characters.
+2. A natural English description of 2-4 short paragraphs.
+3. Five to eight relevant hashtags.
+4. Five to eight relevant YouTube tags.
 
-Make the title specific to the available context.
-Avoid misleading claims, fake facts, keyword stuffing,
-and repetitive clickbait.
-Do not claim to have seen details that are not provided.
+Be specific to the supplied information. Avoid fake facts,
+misleading claims, and repetitive clickbait.
+Do not pretend to have watched the video.
 
 Context:
 {get_video_context(video)}
 
-Return ONLY valid JSON in this exact format:
+Return only valid JSON:
 {{
-  "title": "Your title",
-  "description": "Your description",
+  "title": "Catchy title",
+  "description": "Useful video description",
   "hashtags": ["#Shorts", "#LuxuryLifestyle"],
   "tags": ["luxury lifestyle", "motivation"]
 }}
@@ -115,8 +115,10 @@ Return ONLY valid JSON in this exact format:
     try:
         response = requests.post(
             GEMINI_URL,
-            params={"key": GEMINI_API_KEY},
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": GEMINI_API_KEY,
+            },
             json={
                 "contents": [
                     {
@@ -133,16 +135,32 @@ Return ONLY valid JSON in this exact format:
             timeout=45,
         )
 
-        response.raise_for_status()
+        if not response.ok:
+            print(
+                f"Gemini HTTP {response.status_code}: "
+                f"{response.text[:1000]}"
+            )
+            return fallback_title, fallback_description, fallback_tags
+
         result = response.json()
+        generated_text = (
+            result["candidates"][0]["content"]["parts"][0]["text"]
+        )
+        data = json.loads(generated_text)
 
-        text = result["candidates"][0]["content"]["parts"][0]["text"]
-        data = json.loads(text)
+        title = str(data.get("title", fallback_title)).strip()[:100]
+        description = str(
+            data.get("description", fallback_description)
+        ).strip()[:4500]
 
-        title = str(data.get("title", fallback_title)).strip()
-        description = str(data.get("description", fallback_description)).strip()
-        hashtags = data.get("hashtags", ["#Shorts", "#LuxuryLifestyle"])
-        tags = data.get("tags", ["luxury lifestyle", "motivation"])
+        hashtags = data.get(
+            "hashtags",
+            ["#Shorts", "#LuxuryLifestyle"],
+        )
+        tags = data.get(
+            "tags",
+            ["luxury lifestyle", "motivation"],
+        )
 
         if not isinstance(hashtags, list):
             hashtags = ["#Shorts", "#LuxuryLifestyle"]
@@ -150,21 +168,30 @@ Return ONLY valid JSON in this exact format:
         if not isinstance(tags, list):
             tags = ["luxury lifestyle", "motivation"]
 
-        title = title[:100]
-        description = description[:4900]
-        hashtags = [str(x).strip() for x in hashtags[:8]]
-        tags = [str(x).strip() for x in tags[:15]]
+        clean_hashtags = []
+        for item in hashtags[:8]:
+            tag = str(item).strip()
+            if tag and tag not in clean_hashtags:
+                clean_hashtags.append(tag)
 
-        for hashtag in ["#Shorts", "#LuxuryLifestyle"]:
-            if hashtag.lower() not in [x.lower() for x in hashtags]:
-                hashtags.append(hashtag)
+        for required in ["#Shorts", "#LuxuryLifestyle"]:
+            if required.lower() not in [
+                item.lower() for item in clean_hashtags
+            ]:
+                clean_hashtags.append(required)
 
-        description += "\n\n" + " ".join(hashtags[:10])
+        description += "\n\n" + " ".join(clean_hashtags[:10])
 
-        tags = [tag[:100] for tag in tags if tag.strip()]
+        clean_tags = [
+            str(item).strip()[:100]
+            for item in tags[:15]
+            if str(item).strip()
+        ]
 
         print(f"AI naslov: {title}")
-        return title, description, tags
+        print("Gemini je napravio opis i hashtagove.")
+
+        return title, description, clean_tags or fallback_tags
 
     except (
         requests.RequestException,
@@ -173,12 +200,8 @@ Return ONLY valid JSON in this exact format:
         TypeError,
         ValueError,
     ) as error:
-        print(f"Gemini nije uspeo da napravi opis: {error}")
-        print("Koristim rezervni naslov i opis.")
-
-        return fallback_title, fallback_description, [
-            "luxury lifestyle", "motivation", "success"
-        ]
+        print(f"Gemini greska: {error}")
+        return fallback_title, fallback_description, fallback_tags
 
 
 def main():
@@ -227,29 +250,33 @@ def main():
         )
 
         try:
-            response = youtube.videos().insert(
+            result = youtube.videos().insert(
                 part="snippet,status",
                 body=body,
                 media_body=media,
             ).execute()
 
-            uploaded[video.name] = response["id"]
+            uploaded[video.name] = result["id"]
             save_uploaded(uploaded)
             success += 1
 
             print(
                 f"Upload uspesan: {video.name} | "
-                f"YouTube ID: {response['id']}"
+                f"YouTube ID: {result['id']}"
             )
 
         except HttpError as error:
             message = error.content.decode(
                 "utf-8", errors="replace"
             )
-            print(f"YouTube upload greska: {message}")
+            print(f"YouTube greska: {message}")
 
-            if "uploadLimitExceeded" in message or "quotaExceeded" in message:
-                print("YouTube limit je dostignut. Prekidam upload.")
+            if "uploadLimitExceeded" in message:
+                print(
+                    "YouTube limit je dostignut. "
+                    "Sacekaj pre sledeceg pokusaja."
+                )
+
             break
 
     print(f"U ovom pokretanju uploadovano: {success}")
