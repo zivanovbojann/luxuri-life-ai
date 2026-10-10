@@ -6,6 +6,9 @@ on:
   schedule:
     - cron: '0 8 * * *'
 
+permissions:
+  contents: read
+
 jobs:
   generate:
     runs-on: ubuntu-latest
@@ -38,14 +41,16 @@ jobs:
         env:
           YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
         run: |
-          python -c "import os; from pathlib import Path; p=Path('token.json'); p.write_text(os.environ['YOUTUBE_TOKEN_JSON'], encoding='utf-8'); print('YouTube credentials file prepared')"
+          python -c "import os; from pathlib import Path; Path('token.json').write_text(os.environ['YOUTUBE_TOKEN_JSON'], encoding='utf-8'); print('YouTube credentials file prepared')"
 
       - name: Upload videos to YouTube
         run: python upload_youtube.py
 
       - name: Save generated videos
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: luxury-life-videos
-          path: videos/
-          if-no-files-found: error
+          name: luxury-life-videos-${{ github.run_id }}
+          path: videos/*.mp4
+          if-no-files-found: warn
+          retention-days: 30
