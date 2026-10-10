@@ -1,4 +1,5 @@
 
+
 name: Luxury Life AI
 
 on:
@@ -9,6 +10,7 @@ on:
 jobs:
   generate:
     runs-on: ubuntu-latest
+
     steps:
       - name: Download project
         uses: actions/checkout@v4
@@ -23,7 +25,12 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install Python library
+        run: pip install requests
+
       - name: Run robot
+        env:
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
         run: python generate.py
 
       - name: Save generated videos
