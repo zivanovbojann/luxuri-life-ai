@@ -1,162 +1,145 @@
+
 import os
 import random
 import subprocess
 from datetime import datetime, timezone
 
-# Luxury Life AI 2.0
-# Automatic cinematic YouTube Shorts generator
-
 os.makedirs("videos", exist_ok=True)
 os.makedirs("clips", exist_ok=True)
 os.makedirs("music", exist_ok=True)
 
-VIDEO_DURATION = 20
-VIDEO_COUNT = 3
-WIDTH = 1080
-HEIGHT = 1920
+DURATION = 20
 FPS = 30
+W, H = 1080, 1920
 
-QUOTES = [
-    "BUILD THE LIFE YOU DREAM OF",
-    "WORK IN SILENCE. WIN IN STYLE.",
-    "DISCIPLINE CREATES FREEDOM",
-    "DREAM BIG. STAY FOCUSED.",
-    "YOUR FUTURE IS BUILT TODAY",
-    "SUCCESS IS A LIFESTYLE",
-    "FOCUS ON YOUR OWN JOURNEY",
-    "MAKE YOUR DREAMS YOUR REALITY",
-    "BE DIFFERENT. THINK BIGGER.",
-    "NEVER STOP BUILDING YOUR FUTURE",
-    "PRIVATE LIFE. BIG DREAMS.",
-    "LET YOUR SUCCESS SPEAK",
-    "LUXURY IS EARNED, NOT GIVEN",
-    "STAY HUNGRY. STAY HUMBLE.",
-    "ONE DAY OR DAY ONE. YOU DECIDE."
+FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+STYLES = [
+    {
+        "name": "CINEMATIC",
+        "color": "contrast=1.18:saturation=1.12:brightness=-0.04",
+        "quotes": [
+            "MOVE IN SILENCE",
+            "BUILT DIFFERENT",
+            "LET SUCCESS SPEAK"
+        ]
+    },
+    {
+        "name": "VIRAL",
+        "color": "contrast=1.12:saturation=1.25:brightness=0",
+        "quotes": [
+            "YOUR TIME IS NOW",
+            "NO EXCUSES",
+            "CHASE THE VISION"
+        ]
+    },
+    {
+        "name": "PREMIUM",
+        "color": "contrast=1.08:saturation=0.92:brightness=0.01",
+        "quotes": [
+            "FREEDOM IS THE REAL LUXURY",
+            "CREATE YOUR OWN LEGACY",
+            "DREAM BIGGER"
+        ]
+    }
 ]
 
-VIDEO_EXTENSIONS = (".mp4", ".mov", ".mkv", ".webm")
-AUDIO_EXTENSIONS = (".mp3", ".wav", ".m4a", ".aac", ".ogg")
+VIDEO_EXT = (".mp4", ".mov", ".mkv", ".webm")
+AUDIO_EXT = (".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac")
 
-clips = [
-    os.path.join("clips", file)
-    for file in os.listdir("clips")
-    if file.lower().endswith(VIDEO_EXTENSIONS)
-]
+clips = sorted(
+    os.path.join("clips", f)
+    for f in os.listdir("clips")
+    if f.lower().endswith(VIDEO_EXT)
+)
 
-music_files = [
-    os.path.join("music", file)
-    for file in os.listdir("music")
-    if file.lower().endswith(AUDIO_EXTENSIONS)
+music = [
+    os.path.join("music", f)
+    for f in os.listdir("music")
+    if f.lower().endswith(AUDIO_EXT)
 ]
 
 if not clips:
-    print("ERROR: No videos found in the clips folder.")
-    raise SystemExit(1)
+    raise SystemExit("ERROR: Add video clips to the clips folder.")
 
-# Use a reliable font available on GitHub Actions.
-font = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+if not os.path.exists(FONT):
+    raise SystemExit("ERROR: Font missing. Check the GitHub workflow.")
 
-if not os.path.exists(font):
-    print("ERROR: Required font was not found.")
-    raise SystemExit(1)
+random.shuffle(clips)
+random.shuffle(music)
 
 today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-print("====================================")
-print("       LUXURY LIFE AI 2.0")
-print("====================================")
-print(f"Available video clips: {len(clips)}")
-print(f"Available music tracks: {len(music_files)}")
-print(f"Videos to create: {VIDEO_COUNT}")
+for i in range(3):
+    style = STYLES[i]
+    clip = clips[i % len(clips)]
+    quote = random.choice(style["quotes"])
+    output = f"videos/luxury_{today}_{i + 1}.mp4"
+    text_file = f"videos/quote_{i + 1}.txt"
 
-random.shuffle(clips)
-random.shuffle(music_files)
+    with open(text_file, "w", encoding="utf-8") as f:
+        f.write(quote)
 
-for number in range(1, VIDEO_COUNT + 1):
+    print(f"Creating {style['name']} video: {output}")
 
-    clip = clips[(number - 1) % len(clips)]
-    quote = random.choice(QUOTES)
-
-    output = f"videos/luxury_short_{today}_{number}.mp4"
-
-    print(f"\nCreating video {number}/{VIDEO_COUNT}")
-    print(f"Source: {clip}")
-    print(f"Quote: {quote}")
-
-    # Cinematic color grading and a dark text background.
     video_filter = (
-        f"scale={WIDTH}:{HEIGHT}:"
-        "force_original_aspect_ratio=increase,"
-        f"crop={WIDTH}:{HEIGHT},"
+        f"scale={W}:{H}:force_original_aspect_ratio=increase,"
+        f"crop={W}:{H},"
         "setsar=1,"
-        "eq=contrast=1.12:saturation=1.15:brightness=-0.03,"
-        "drawbox=x=0:y=ih*0.61:w=iw:h=ih*0.25:"
+        f"eq={style['color']},"
+        "zoompan=z='min(zoom+0.0005,1.08)':"
+        f"d=1:s={W}x{H}:fps={FPS},"
+        "drawbox=x=0:y=ih*0.59:w=iw:h=ih*0.25:"
         "color=black@0.38:t=fill,"
-        f"drawtext=fontfile={font}:"
-        f"text='{quote}':"
+        f"drawtext=fontfile={FONT}:"
+        f"textfile={text_file}:"
         "fontcolor=white:"
-        "fontsize=54:"
-        "line_spacing=15:"
+        "fontsize=64:"
+        "line_spacing=12:"
         "x=(w-text_w)/2:"
         "y=(h-text_h)/2:"
-        "box=1:"
-        "boxcolor=black@0.20:"
-        "boxborderw=18"
+        "shadowcolor=black@0.8:"
+        "shadowx=3:shadowy=3:"
+        "borderw=1:bordercolor=white@0.25,"
+        "fade=t=in:st=0:d=0.5,"
+        f"fade=t=out:st={DURATION - 1}:d=1"
     )
 
-    command = [
-        "ffmpeg",
-        "-hide_banner",
-        "-loglevel", "error",
-        "-y",
-        "-stream_loop", "-1",
-        "-i", clip,
+    cmd = [
+        "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+        "-stream_loop", "-1", "-i", clip
     ]
 
-    # Add music when a track is available.
-    if music_files:
-        music = music_files[(number - 1) % len(music_files)]
-        command.extend([
-            "-stream_loop", "-1",
-            "-i", music
-        ])
+    if music:
+        track = music[i % len(music)]
+        cmd += ["-stream_loop", "-1", "-i", track]
 
-    command.extend([
+    cmd += [
         "-vf", video_filter,
-        "-t", str(VIDEO_DURATION),
+        "-t", str(DURATION),
         "-r", str(FPS),
         "-c:v", "libx264",
         "-preset", "veryfast",
-        "-crf", "23",
-        "-pix_fmt", "yuv420p",
-    ])
+        "-crf", "21",
+        "-pix_fmt", "yuv420p"
+    ]
 
-    if music_files:
-        command.extend([
+    if music:
+        cmd += [
             "-map", "0:v:0",
             "-map", "1:a:0",
-            "-af", "volume=0.18",
+            "-af",
+            "volume=0.18,afade=t=in:st=0:d=1,"
+            f"afade=t=out:st={DURATION - 2}:d=2",
             "-c:a", "aac",
-            "-b:a", "128k",
-            "-shortest",
-        ])
+            "-b:a", "160k"
+        ]
     else:
-        command.append("-an")
+        cmd += ["-an"]
 
-    command.extend([
-        "-movflags", "+faststart",
-        output
-    ])
+    cmd += ["-movflags", "+faststart", output]
 
-    try:
-        subprocess.run(command, check=True)
-        print(f"SUCCESS: {output}")
+    subprocess.run(cmd, check=True)
+    print(f"SUCCESS: {output}")
 
-    except subprocess.CalledProcessError as error:
-        print(f"ERROR while creating video {number}: {error}")
-        raise
-
-print("\n====================================")
-print("LUXURY LIFE AI 2.0 FINISHED!")
-print(f"Videos saved in: videos/")
-print("====================================")
+print("Luxury Life AI 3.0 finished!")
