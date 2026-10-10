@@ -4,7 +4,12 @@ name: Luxury Life AI
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 8 * * *'
+    - cron: '0 10 * * *'
+      timezone: 'Europe/Berlin'
+    - cron: '0 15 * * *'
+      timezone: 'Europe/Berlin'
+    - cron: '0 20 * * *'
+      timezone: 'Europe/Berlin'
 
 permissions:
   contents: write
@@ -44,7 +49,7 @@ jobs:
           python -m pip install requests
           python -m pip install google-api-python-client google-auth-oauthlib google-auth-httplib2
 
-      - name: Run video generator
+      - name: Generate videos
         env:
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
         run: python generate.py
@@ -60,7 +65,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python upload_youtube.py
 
-      - name: Save upload history to GitHub
+      - name: Save upload history
         if: always()
         run: |
           git config user.name "github-actions[bot]"
