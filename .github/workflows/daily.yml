@@ -1,29 +1,29 @@
 
-name: Luxury Life AI
+import os
+import random
+from datetime import datetime
 
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: "0 8 * * *"
+os.makedirs("videos", exist_ok=True)
 
-jobs:
-  generate:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download project
-        uses: actions/checkout@v4
+ideas = [
+    ("BMW M5", "Work in silence. Let success make the noise."),
+    ("Mercedes AMG", "Build your dream life."),
+    ("Porsche 911", "Freedom is the real luxury."),
+    ("Luxury cars", "Dream big. Work hard."),
+    ("Night drive", "Your future starts today."),
+    ("Success", "Never stop chasing your dreams.")
+]
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+random.shuffle(ideas)
+today = datetime.now().strftime("%Y-%m-%d")
 
-      - name: Run robot
-        run: python generate.py
+for number, (topic, quote) in enumerate(ideas[:3], start=1):
+    filename = f"videos/idea_{today}_{number}.txt"
 
-      - name: Save generated ideas
-        uses: actions/upload-artifact@v4
-        with:
-          name: daily-video-ideas
-          path: videos/
-          if-no-files-found: error
+    with open(filename, "w", encoding="utf-8") as file:
+        file.write(f"Topic: {topic}\n")
+        file.write(f"Quote: {quote}\n")
+
+    print(f"Created: {filename}")
+
+print("Luxury Life AI finished successfully!")
