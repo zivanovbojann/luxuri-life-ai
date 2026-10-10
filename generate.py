@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 
 os.makedirs("videos", exist_ok=True)
 os.makedirs("clips", exist_ok=True)
-os.makedirs("music", exist_ok=True)
 
 DURATION = 20
 FPS = 30
@@ -45,57 +44,44 @@ STYLES = [
 ]
 
 VIDEO_EXT = (".mp4", ".mov", ".mkv", ".webm")
-AUDIO_EXT = (".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac")
 
-clips = sorted(
+clips = [
     os.path.join("clips", f)
     for f in os.listdir("clips")
     if f.lower().endswith(VIDEO_EXT)
-)
-
-music = [
-    os.path.join("music", f)
-    for f in os.listdir("music")
-    if f.lower().endswith(AUDIO_EXT)
 ]
 
 if not clips:
     raise SystemExit("ERROR: Add video clips to the clips folder.")
 
 if not os.path.exists(FONT):
-    raise SystemExit("ERROR: Font missing. Check the GitHub workflow.")
+    raise SystemExit("ERROR: Font missing.")
 
 random.shuffle(clips)
-random.shuffle(music)
-
 today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 for i in range(3):
     style = STYLES[i]
     clip = clips[i % len(clips)]
     quote = random.choice(style["quotes"])
+
     output = f"videos/luxury_{today}_{i + 1}.mp4"
     text_file = f"videos/quote_{i + 1}.txt"
 
     with open(text_file, "w", encoding="utf-8") as f:
         f.write(quote)
 
-    print(f"Creating {style['name']} video: {output}")
-
     video_filter = (
         f"scale={W}:{H}:force_original_aspect_ratio=increase,"
         f"crop={W}:{H},"
         "setsar=1,"
         f"eq={style['color']},"
-        "zoompan=z='min(zoom+0.0005,1.08)':"
-        f"d=1:s={W}x{H}:fps={FPS},"
         "drawbox=x=0:y=ih*0.59:w=iw:h=ih*0.25:"
         "color=black@0.38:t=fill,"
         f"drawtext=fontfile={FONT}:"
         f"textfile={text_file}:"
         "fontcolor=white:"
         "fontsize=64:"
-        "line_spacing=12:"
         "x=(w-text_w)/2:"
         "y=(h-text_h)/2:"
         "shadowcolor=black@0.8:"
@@ -107,39 +93,24 @@ for i in range(3):
 
     cmd = [
         "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-        "-stream_loop", "-1", "-i", clip
-    ]
-
-    if music:
-        track = music[i % len(music)]
-        cmd += ["-stream_loop", "-1", "-i", track]
-
-    cmd += [
-        "-vf", video_filter,
+        "-i", clip,
+        "-filter_complex",
+        f"[0:v]{video_filter},split=2[first][second];"
+        f"[first][second]concat=n=2:v=1:a=0[outv]",
+        "-map", "[outv]",
         "-t", str(DURATION),
         "-r", str(FPS),
         "-c:v", "libx264",
         "-preset", "veryfast",
         "-crf", "21",
-        "-pix_fmt", "yuv420p"
+        "-pix_fmt", "yuv420p",
+        "-an",
+        "-movflags", "+faststart",
+        output
     ]
 
-    if music:
-        cmd += [
-            "-map", "0:v:0",
-            "-map", "1:a:0",
-            "-af",
-            "volume=0.18,afade=t=in:st=0:d=1,"
-            f"afade=t=out:st={DURATION - 2}:d=2",
-            "-c:a", "aac",
-            "-b:a", "160k"
-        ]
-    else:
-        cmd += ["-an"]
-
-    cmd += ["-movflags", "+faststart", output]
-
+    print(f"Creating {style['name']} video: {output}")
     subprocess.run(cmd, check=True)
     print(f"SUCCESS: {output}")
 
-print("Luxury Life AI 3.0 finished!")
+print("Luxury Life AI finished!")
