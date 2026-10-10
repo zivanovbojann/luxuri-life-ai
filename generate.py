@@ -1,36 +1,29 @@
-```python
+
 import os
 import random
 from datetime import datetime
 
-OUTPUT_DIR = "videos"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+os.makedirs("videos", exist_ok=True)
 
-IDEAS = [
+ideas = [
     ("BMW M5", "Work in silence. Let success make the noise."),
-    ("Mercedes AMG", "Your future is built by what you do today."),
-    ("Porsche 911", "Dream big. Work hard. Stay free."),
-    ("Luxury lifestyle", "Freedom is the real luxury."),
-    ("Night drive", "One day, the hard work will pay off."),
-    ("Success mindset", "Build a life you don't need a vacation from."),
+    ("Mercedes AMG", "Build your dream life."),
+    ("Porsche 911", "Freedom is the real luxury."),
+    ("Luxury cars", "Dream big. Work hard."),
+    ("Night drive", "Your future starts today."),
+    ("Success", "Never stop chasing your dreams.")
 ]
 
-def main():
-    today = datetime.now().strftime("%Y-%m-%d")
-    random.shuffle(IDEAS)
+random.shuffle(ideas)
+today = datetime.now().strftime("%Y-%m-%d")
 
-    for number, (topic, quote) in enumerate(IDEAS[:3], start=1):
-        filename = f"{OUTPUT_DIR}/idea_{today}_{number}.txt"
+for number, (topic, quote) in enumerate(ideas[:3], start=1):
+    filename = f"videos/idea_{today}_{number}.txt"
 
-        with open(filename, "w", encoding="utf-8") as file:
-            file.write(f"VIDEO {number}\n")
-            file.write(f"Topic: {topic}\n")
-            file.write(f"Quote: {quote}\n")
-            file.write("Format: YouTube Shorts, vertical 9:16\n")
-            file.write("Music: Use properly licensed music\n")
+    with open(filename, "w", encoding="utf-8") as file:
+        file.write(f"Topic: {topic}\n")
+        file.write(f"Quote: {quote}\n")
 
-        print(f"Prepared: {filename}")
+    print(f"Created: {filename}")
 
-if __name__ == "__main__":
-    main()
-```
+print("Luxury Life AI finished successfully!")
