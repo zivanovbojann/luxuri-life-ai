@@ -3,10 +3,9 @@ import os
 import random
 import subprocess
 import requests
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-
-# LUXURY LIFE AI - SHORTS GENERATOR
+from zoneinfo import ZoneInfo
 
 VIDEO_DIR = Path("videos")
 CLIP_DIR = Path("clips")
@@ -34,7 +33,7 @@ SEARCH_TERMS = [
     "luxury city night",
     "sports car cinematic",
     "luxury car cinematic vertical",
-    "supercar sunset"
+    "supercar sunset",
 ]
 
 STYLES = [
@@ -46,8 +45,8 @@ STYLES = [
             "BUILT DIFFERENT",
             "LET SUCCESS SPEAK",
             "DISCIPLINE BUILDS LEGENDS",
-            "WORK UNTIL THEY NOTICE"
-        ]
+            "WORK UNTIL THEY NOTICE",
+        ],
     },
     {
         "name": "VIRAL",
@@ -57,8 +56,8 @@ STYLES = [
             "NO EXCUSES",
             "CHASE THE VISION",
             "STAY HUNGRY",
-            "PROVE THEM WRONG"
-        ]
+            "PROVE THEM WRONG",
+        ],
     },
     {
         "name": "PREMIUM",
@@ -68,28 +67,21 @@ STYLES = [
             "CREATE YOUR OWN LEGACY",
             "DREAM BIGGER",
             "SUCCESS IS A LIFESTYLE",
-            "THINK BEYOND LIMITS"
-        ]
-    }
+            "THINK BEYOND LIMITS",
+        ],
+    },
 ]
 
 
-def download_pixabay_clips(target_count=3):
-    """Preuzima različite dostupne klipove sa Pixabay-a."""
-
+def download_pixabay_clip():
     if not API_KEY:
-        print("Nema PIXABAY_API_KEY. Koristim postojeće klipove.")
-        return []
+        print("Nema PIXABAY_API_KEY.")
+        return None
 
-    downloaded = []
-    seen_ids = set()
     terms = SEARCH_TERMS.copy()
     random.shuffle(terms)
 
     for term in terms:
-        if len(downloaded) >= target_count:
-            break
-
         try:
             response = requests.get(
                 "https://pixabay.com/api/videos/",
@@ -98,24 +90,23 @@ def download_pixabay_clips(target_count=3):
                     "q": term,
                     "safesearch": "true",
                     "per_page": 50,
-                    "order": "popular"
+                    "order": "popular",
                 },
-                timeout=30
+                timeout=30,
             )
             response.raise_for_status()
             hits = response.json().get("hits", [])
             random.shuffle(hits)
 
             for hit in hits:
-                if len(downloaded) >= target_count:
-                    break
-
                 video_id = str(hit.get("id", ""))
-
-                if not video_id or video_id in seen_ids:
+                if not video_id:
                     continue
 
-                seen_ids.add(video_id)
+                destination = CLIP_DIR / f"pixabay_{video_id}.mp4"
+
+                if destination.exists():
+                    continue
 
                 options = hit.get("videos", {})
                 video = (
@@ -127,22 +118,13 @@ def download_pixabay_clips(target_count=3):
                 if not video or not video.get("url"):
                     continue
 
-                destination = CLIP_DIR / f"pixabay_{video_id}.mp4"
-
-                # Ne računaj stari fajl kao novi klip.
-                if destination.exists():
-                    continue
-
                 temporary = destination.with_suffix(".part")
 
                 try:
                     with requests.get(
-                        video["url"],
-                        stream=True,
-                        timeout=90
+                        video["url"], stream=True, timeout=90
                     ) as video_response:
                         video_response.raise_for_status()
-
                         with open(temporary, "wb") as output:
                             for chunk in video_response.iter_content(
                                 chunk_size=1024 * 1024
@@ -150,17 +132,19 @@ def download_pixabay_clips(target_count=3):
                                 if chunk:
                                     output.write(chunk)
 
-                    if not temporary.exists() or temporary.stat().st_size < 100_000:
+                    if (
+                        not temporary.exists()
+                        or temporary.stat().st_size < 100_000
+                    ):
                         temporary.unlink(missing_ok=True)
                         continue
 
                     temporary.replace(destination)
-                    downloaded.append(str(destination))
 
                     with open(
                         CLIP_DIR / "pixabay_sources.txt",
                         "a",
-                        encoding="utf-8"
+                        encoding="utf-8",
                     ) as source_file:
                         source_file.write(
                             f"ID: {video_id} | "
@@ -169,6 +153,7 @@ def download_pixabay_clips(target_count=3):
                         )
 
                     print(f"Preuzet novi klip: {destination}")
+                    return str(destination)
 
                 except Exception as error:
                     print(f"Klip nije preuzet: {error}")
@@ -177,7 +162,7 @@ def download_pixabay_clips(target_count=3):
         except Exception as error:
             print(f"Pixabay pretraga nije uspela: {error}")
 
-    return downloaded
+    return None
 
 
 def get_existing_clips():
@@ -197,7 +182,8 @@ def get_music():
 
 
 def main():
-    # Ukloni stare izlazne videe da se ne postavljaju ponovo.
+    # Ukloni stare MP4 izlaze da upload skripta ne obrađuje
+    # više videa u istom pokretanju.
     for path in VIDEO_DIR.glob("*.mp4"):
         path.unlink()
 
@@ -208,102 +194,73 @@ def main():
         raise SystemExit("ERROR: Font nije pronađen.")
 
     music = get_music()
-
     if not music:
-        raise SystemExit(
-            "ERROR: Nema muzike u folderu music/. Dodaj MP3 fajlove."
-        )
+        raise SystemExit("ERROR: Dodaj MP3 muziku u folder music/.")
 
-    # Prvo pokušaj da pronađeš tri nova klipa.
-    fresh_clips = download_pixabay_clips(target_count=3)
+    clip = download_pixabay_clip()
 
-    # Ako Pixabay nema dovoljno novih klipova, koristi postojeće.
-    clips = fresh_clips.copy()
-
-    if len(clips) < 3:
+    if not clip:
         existing = get_existing_clips()
-        existing = [
-            clip for clip in existing
-            if clip not in clips
-        ]
-        random.shuffle(existing)
-        clips.extend(existing[:3 - len(clips)])
+        if not existing:
+            raise SystemExit("ERROR: Nema dostupnih video-klipova.")
+        clip = random.choice(existing)
 
-    if not clips:
-        raise SystemExit(
-            "ERROR: Nema video-klipova. Proveri Pixabay API ključ."
-        )
+    track = random.choice(music)
+    style = random.choice(STYLES)
+    quote = random.choice(style["quotes"])
 
-    if len(clips) < 3:
-        print(
-            f"Upozorenje: pronađeno je samo {len(clips)} klipova. "
-            "Napraviće se samo onoliko različitih videa koliko je moguće."
-        )
+    now = datetime.now(ZoneInfo("Europe/Berlin"))
+    timestamp = now.strftime("%Y-%m-%d_%H-%M")
+    output = VIDEO_DIR / f"luxury_{timestamp}.mp4"
+    text_file = VIDEO_DIR / "quote_1.txt"
+    text_file.write_text(quote, encoding="utf-8")
 
-    random.shuffle(clips)
-    random.shuffle(music)
+    video_filter = (
+        f"scale={W}:{H}:force_original_aspect_ratio=increase,"
+        f"crop={W}:{H},setsar=1,"
+        "zoompan=z='min(zoom+0.0007,1.10)':"
+        "x='iw/2-(iw/zoom/2)':"
+        "y='ih/2-(ih/zoom/2)':"
+        f"d=1:s={W}x{H}:fps={FPS},"
+        f"eq={style['color']},"
+        "vignette=PI/5,"
+        "drawbox=x=0:y=ih*0.58:w=iw:h=ih*0.27:"
+        "color=black@0.42:t=fill,"
+        f"drawtext=fontfile={FONT}:textfile={text_file}:"
+        "fontcolor=white:fontsize=66:"
+        "x=(w-text_w)/2:y=(h-text_h)/2:"
+        "shadowcolor=black@0.9:shadowx=4:shadowy=4:"
+        "borderw=2:bordercolor=black@0.3,"
+        "fade=t=in:st=0:d=0.7,"
+        f"fade=t=out:st={DURATION - 1}:d=1"
+    )
 
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    video_count = min(3, len(clips))
+    command = [
+        "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+        "-stream_loop", "-1", "-i", clip,
+        "-stream_loop", "-1", "-i", track,
+        "-vf", video_filter,
+        "-map", "0:v:0",
+        "-map", "1:a:0",
+        "-t", str(DURATION),
+        "-r", str(FPS),
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", "20",
+        "-pix_fmt", "yuv420p",
+        "-af",
+        "volume=0.18,afade=t=in:st=0:d=1,"
+        f"afade=t=out:st={DURATION - 2}:d=2",
+        "-c:a", "aac",
+        "-b:a", "160k",
+        "-movflags", "+faststart",
+        str(output),
+    ]
 
-    for i in range(video_count):
-        style = STYLES[i]
-        clip = clips[i]
-        track = music[i % len(music)]
-        quote = random.choice(style["quotes"])
-
-        output = VIDEO_DIR / f"luxury_{today}_{i + 1}.mp4"
-        text_file = VIDEO_DIR / f"quote_{i + 1}.txt"
-
-        text_file.write_text(quote, encoding="utf-8")
-
-        video_filter = (
-            f"scale={W}:{H}:force_original_aspect_ratio=increase,"
-            f"crop={W}:{H},setsar=1,"
-            "zoompan=z='min(zoom+0.0007,1.10)':"
-            "x='iw/2-(iw/zoom/2)':"
-            "y='ih/2-(ih/zoom/2)':"
-            f"d=1:s={W}x{H}:fps={FPS},"
-            f"eq={style['color']},"
-            "vignette=PI/5,"
-            "drawbox=x=0:y=ih*0.58:w=iw:h=ih*0.27:"
-            "color=black@0.42:t=fill,"
-            f"drawtext=fontfile={FONT}:textfile={text_file}:"
-            "fontcolor=white:fontsize=66:"
-            "x=(w-text_w)/2:y=(h-text_h)/2:"
-            "shadowcolor=black@0.9:shadowx=4:shadowy=4:"
-            "borderw=2:bordercolor=black@0.3,"
-            "fade=t=in:st=0:d=0.7,"
-            f"fade=t=out:st={DURATION - 1}:d=1"
-        )
-
-        command = [
-            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-            "-stream_loop", "-1", "-i", clip,
-            "-stream_loop", "-1", "-i", track,
-            "-vf", video_filter,
-            "-map", "0:v:0",
-            "-map", "1:a:0",
-            "-t", str(DURATION),
-            "-r", str(FPS),
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-crf", "20",
-            "-pix_fmt", "yuv420p",
-            "-af",
-            "volume=0.18,afade=t=in:st=0:d=1,"
-            f"afade=t=out:st={DURATION - 2}:d=2",
-            "-c:a", "aac",
-            "-b:a", "160k",
-            "-movflags", "+faststart",
-            str(output)
-        ]
-
-        print(f"Pravim {style['name']} video: {output}")
-        subprocess.run(command, check=True)
-        print(f"USPEŠNO: {output}")
-
-    print(f"Luxury Life AI završen. Napravljeno videa: {video_count}")
+    print(f"Pravim jedan {style['name']} video: {output}")
+    subprocess.run(command, check=True)
+    print(f"USPEŠNO: {output}")
+    print("Napravljeno videa: 1")
 
 
 if __name__ == "__main__":
