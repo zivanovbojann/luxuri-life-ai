@@ -1,0 +1,30 @@
+```yaml
+name: Luxury Life AI
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 8 * * *'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download project
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run robot
+        run: python generate.py
+
+      - name: Save generated ideas
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-video-ideas
+          path: videos/
+          if-no-files-found: error
+```
