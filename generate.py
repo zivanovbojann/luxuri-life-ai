@@ -14,17 +14,17 @@ FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 STYLES = [
     {
         "name": "CINEMATIC",
-        "color": "contrast=1.18:saturation=1.12:brightness=-0.04",
+        "color": "contrast=1.22:saturation=1.18:brightness=-0.035",
         "quotes": ["MOVE IN SILENCE", "BUILT DIFFERENT", "LET SUCCESS SPEAK"]
     },
     {
         "name": "VIRAL",
-        "color": "contrast=1.12:saturation=1.25:brightness=0",
+        "color": "contrast=1.18:saturation=1.28:brightness=-0.01",
         "quotes": ["YOUR TIME IS NOW", "NO EXCUSES", "CHASE THE VISION"]
     },
     {
         "name": "PREMIUM",
-        "color": "contrast=1.08:saturation=0.92:brightness=0.01",
+        "color": "contrast=1.14:saturation=1.05:brightness=-0.02",
         "quotes": ["FREEDOM IS THE REAL LUXURY", "CREATE YOUR OWN LEGACY", "DREAM BIGGER"]
     }
 ]
@@ -45,11 +45,9 @@ music = [
 ]
 
 if not clips:
-    raise SystemExit("ERROR: Add video clips to the clips folder.")
-
+    raise SystemExit("ERROR: Add video clips to clips folder.")
 if not music:
-    raise SystemExit("ERROR: Add an audio file to the music folder.")
-
+    raise SystemExit("ERROR: Add music to music folder.")
 if not os.path.exists(FONT):
     raise SystemExit("ERROR: Font missing.")
 
@@ -73,19 +71,22 @@ for i in range(3):
     video_filter = (
         f"scale={W}:{H}:force_original_aspect_ratio=increase,"
         f"crop={W}:{H},setsar=1,"
+        "zoompan=z='min(zoom+0.0007,1.10)':"
+        f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
+        f"d=1:s={W}x{H}:fps={FPS},"
         f"eq={style['color']},"
-        "drawbox=x=0:y=ih*0.59:w=iw:h=ih*0.25:"
-        "color=black@0.38:t=fill,"
+        "vignette=PI/5,"
+        "drawbox=x=0:y=ih*0.58:w=iw:h=ih*0.27:"
+        "color=black@0.42:t=fill,"
         f"drawtext=fontfile={FONT}:textfile={text_file}:"
-        "fontcolor=white:fontsize=64:"
+        "fontcolor=white:fontsize=66:"
         "x=(w-text_w)/2:y=(h-text_h)/2:"
-        "shadowcolor=black@0.8:shadowx=3:shadowy=3:"
-        "borderw=1:bordercolor=white@0.25,"
-        "fade=t=in:st=0:d=0.5,"
-        "fade=t=out:st=19:d=1"
+        "shadowcolor=black@0.9:shadowx=4:shadowy=4:"
+        "borderw=2:bordercolor=black@0.3,"
+        "fade=t=in:st=0:d=0.7,"
+        f"fade=t=out:st={DURATION - 1}:d=1"
     )
 
-    # Repeat the video source once, then keep a 20-second final video.
     cmd = [
         "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
         "-i", clip,
@@ -99,9 +100,11 @@ for i in range(3):
         "-r", str(FPS),
         "-c:v", "libx264",
         "-preset", "veryfast",
-        "-crf", "21",
+        "-crf", "20",
         "-pix_fmt", "yuv420p",
-        "-af", "volume=0.18,afade=t=in:st=0:d=1,afade=t=out:st=18:d=2",
+        "-af",
+        "volume=0.18,afade=t=in:st=0:d=1,"
+        f"afade=t=out:st={DURATION - 2}:d=2",
         "-c:a", "aac",
         "-b:a", "160k",
         "-shortest",
