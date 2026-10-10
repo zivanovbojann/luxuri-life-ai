@@ -9,15 +9,14 @@ on:
 jobs:
   generate:
     runs-on: ubuntu-latest
-
     steps:
       - name: Download project
         uses: actions/checkout@v4
 
-      - name: Install FFmpeg
+      - name: Install FFmpeg and fonts
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
 
       - name: Set up Python
         uses: actions/setup-python@v5
