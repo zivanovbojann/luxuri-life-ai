@@ -56,6 +56,8 @@ jobs:
           python -c "import os; from pathlib import Path; Path('token.json').write_text(os.environ['YOUTUBE_TOKEN_JSON'], encoding='utf-8')"
 
       - name: Upload videos to YouTube
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python upload_youtube.py
 
       - name: Save upload history to GitHub
