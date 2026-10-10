@@ -1,29 +1,25 @@
 
-import os
-import random
-from datetime import datetime
 
-os.makedirs("videos", exist_ok=True)
+name: Luxury Life AI
 
-ideas = [
-    ("BMW M5", "Work in silence. Let success make the noise."),
-    ("Mercedes AMG", "Build your dream life."),
-    ("Porsche 911", "Freedom is the real luxury."),
-    ("Luxury cars", "Dream big. Work hard."),
-    ("Night drive", "Your future starts today."),
-    ("Success", "Never stop chasing your dreams.")
-]
+on:
+  workflow_dispatch:
 
-random.shuffle(ideas)
-today = datetime.now().strftime("%Y-%m-%d")
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-for number, (topic, quote) in enumerate(ideas[:3], start=1):
-    filename = f"videos/idea_{today}_{number}.txt"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-    with open(filename, "w", encoding="utf-8") as file:
-        file.write(f"Topic: {topic}\n")
-        file.write(f"Quote: {quote}\n")
+      - name: Run robot
+        run: python generate.py
 
-    print(f"Created: {filename}")
-
-print("Luxury Life AI finished successfully!")
+      - name: Save ideas
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-video-ideas
+          path: videos/
