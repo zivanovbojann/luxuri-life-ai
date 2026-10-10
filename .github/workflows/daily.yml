@@ -1,25 +1,35 @@
 
-
 name: Luxury Life AI
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 8 * * *'
 
 jobs:
   generate:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+    steps:
+      - name: Download project
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
       - name: Run robot
         run: python generate.py
 
-      - name: Save ideas
+      - name: Save generated videos
         uses: actions/upload-artifact@v4
         with:
-          name: daily-video-ideas
+          name: luxury-life-videos
           path: videos/
+          if-no-files-found: error
