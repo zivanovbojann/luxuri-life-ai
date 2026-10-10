@@ -1,29 +1,59 @@
 
 import os
 import random
+import subprocess
 from datetime import datetime
 
 os.makedirs("videos", exist_ok=True)
+os.makedirs("clips", exist_ok=True)
 
-ideas = [
-    ("BMW M5", "Work in silence. Let success make the noise."),
-    ("Mercedes AMG", "Build your dream life."),
-    ("Porsche 911", "Freedom is the real luxury."),
-    ("Luxury cars", "Dream big. Work hard."),
-    ("Night drive", "Your future starts today."),
-    ("Success", "Never stop chasing your dreams.")
+quotes = [
+    ("Luxury Lifestyle", "BUILD THE LIFE YOU DREAM OF."),
+    ("Dream Big", "WORK IN SILENCE. LET SUCCESS SPEAK."),
+    ("Freedom", "TRUE LUXURY IS FREEDOM."),
 ]
 
-random.shuffle(ideas)
+clips = [
+    file for file in os.listdir("clips")
+    if file.lower().endswith((".mp4", ".mov", ".mkv"))
+]
+
+if not clips:
+    print("No video clips found in the clips folder.")
+    print("Add legally usable car or luxury lifestyle videos to clips/.")
+    raise SystemExit(0)
+
+random.shuffle(clips)
 today = datetime.now().strftime("%Y-%m-%d")
 
-for number, (topic, quote) in enumerate(ideas[:3], start=1):
-    filename = f"videos/idea_{today}_{number}.txt"
+for number, (topic, quote) in enumerate(quotes, start=1):
+    clip = clips[(number - 1) % len(clips)]
+    source = os.path.join("clips", clip)
+    output = f"videos/short_{today}_{number}.mp4"
 
-    with open(filename, "w", encoding="utf-8") as file:
-        file.write(f"Topic: {topic}\n")
-        file.write(f"Quote: {quote}\n")
+    command = [
+        "ffmpeg", "-y",
+        "-stream_loop", "-1",
+        "-i", source,
+        "-t", "20",
+        "-vf",
+        "scale=1080:1920:force_original_aspect_ratio=increase,"
+        "crop=1080:1920,"
+        "drawtext=text='" + quote.replace("'", "") + "':"
+        "fontcolor=white:fontsize=58:"
+        "x=(w-text_w)/2:y=h*0.72:"
+        "box=1:boxcolor=black@0.45:boxborderw=20",
+        "-an",
+        "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",
+        output
+    ]
 
-    print(f"Created: {filename}")
+    try:
+        subprocess.run(command, check=True)
+        print(f"Created video: {output}")
+    except (subprocess.CalledProcessError, FileNotFoundError) as error:
+        print(f"Could not create {output}: {error}")
+        raise
 
-print("Luxury Life AI finished successfully!")
+print("Luxury Life AI finished!")
